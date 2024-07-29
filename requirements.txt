@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+python-dotenv
+pyodbc
+pypyodbc
+sqlalchemy
+pydantic
+PyJWT
+python-decouple
