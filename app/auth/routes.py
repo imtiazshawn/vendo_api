@@ -101,7 +101,7 @@ async def login(login_request: LoginRequest):
     access_token = create_access_token(data={"sub": db_user[1]})
     refresh_token = create_refresh_token(data={"sub": db_user[1]})
 
-    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": db_user[1]}
+    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
 
 @router.post("/logout", status_code=status.HTTP_200_OK)
 async def logout(token: str = Depends(oauth2_scheme)):
