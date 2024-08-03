@@ -3,7 +3,9 @@ from app.services.dbServices import connect_to_database
 from app.database.init_db import initialize_roles
 from app.auth.routes import router as auth_router
 
-app = FastAPI()
+app = FastAPI(
+    title="VendoAPI"
+)
 
 @app.on_event("startup")
 async def startup():
