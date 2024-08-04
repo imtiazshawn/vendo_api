@@ -99,11 +99,11 @@ async def update_user_profile(profile_update: UserProfileUpdate, token: str = De
 
         return {
             "id": updated_user[0],
-            "email": updated_user[1],
-            "username": updated_user[2],
-            "full_name": updated_user[3],
-            "phone": updated_user[4],
-            "address": updated_user[5]
+            "username": updated_user[1],
+            "email": updated_user[2],
+            "full_name": updated_user[4],
+            "phone": updated_user[5],
+            "address": updated_user[6]
         }
     except Exception as e:
         print('Exception:', e)
