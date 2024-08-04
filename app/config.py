@@ -1,8 +1,11 @@
 from fastapi import FastAPI
+
 from app.services.dbServices import connect_to_database
 from app.database.init_db import initialize_roles
 from app.auth.routes import router as auth_router
 from app.auth.admin_routes import router as admin_auth_router
+from app.user.routes import router as user_router
+from app.admin.routes import router as admin_router
 
 app = FastAPI(
     title="VendoAPI"
@@ -15,4 +18,6 @@ async def startup():
     print("DB Connect Successfully")
 
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
+app.include_router(user_router, prefix="/api/user", tags=["user"])
 app.include_router(admin_auth_router, prefix="/api/admin/auth", tags=["admin_auth"])
+app.include_router(admin_router, prefix="/api/admin", tags=["admin"])
