@@ -97,7 +97,6 @@ async def login(login_request: LoginRequest):
     if not db_user or not verify_password(login_request.password, db_user[3]):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
-    # Generate tokens
     access_token = create_access_token(data={"sub": db_user[1]})
     refresh_token = create_refresh_token(data={"sub": db_user[1]})
 
@@ -114,11 +113,9 @@ async def logout(token: str = Depends(oauth2_scheme)):
 @router.post("/refresh-token", response_model=TokenResponse)
 async def refresh_token(refresh_token: str):
     try:
-        # Verify the refresh token
         payload = verify_token(refresh_token)
         email = payload.get("sub")
         
-        # Generate new tokens
         access_token = create_access_token(data={"sub": email})
         new_refresh_token = create_refresh_token(data={"sub": email})
 
