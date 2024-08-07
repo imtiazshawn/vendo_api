@@ -95,7 +95,7 @@ async def update_user(userId: int, user_update: AdminUserUpdate, token: str = De
         conn = await connect_to_database()
         cursor = conn.cursor()
 
-        cursor.execute("SELECT * FROM Admins WHERE id=?", (userId,))
+        cursor.execute("SELECT * FROM Admins WHERE adminId=?", (userId,))
         admin = cursor.fetchone()
 
         if not admin:
@@ -112,7 +112,7 @@ async def update_user(userId: int, user_update: AdminUserUpdate, token: str = De
             update_fields.append("username=?")
             params.append(user_update.username)
         if user_update.full_name:
-            update_fields.append("full_name=?")
+            update_fields.append("fullName=?")
             params.append(user_update.full_name)
 
         if not update_fields:
@@ -120,14 +120,14 @@ async def update_user(userId: int, user_update: AdminUserUpdate, token: str = De
             conn.close()
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update")
 
-        update_fields.append("updatedAt=GETDATE()")
+        update_fields.append("updatedAt=CURRENT_TIMESTAMP")
         params.append(userId)
 
-        update_query = f"UPDATE Admins SET {', '.join(update_fields)} WHERE id=?"
+        update_query = f"UPDATE Admins SET {', '.join(update_fields)} WHERE adminId=?"
         cursor.execute(update_query, tuple(params))
         conn.commit()
 
-        cursor.execute("SELECT * FROM Admins WHERE id=?", (userId,))
+        cursor.execute("SELECT * FROM Admins WHERE adminId=?", (userId,))
         updated_admin = cursor.fetchone()
 
         cursor.close()
@@ -143,6 +143,7 @@ async def update_user(userId: int, user_update: AdminUserUpdate, token: str = De
         print('Exception:', e)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token or error updating user")
 
+
 @router.delete("/admins/{userId}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(userId: int, token: str = Depends(oauth2_scheme)):
     try:
@@ -155,7 +156,8 @@ async def delete_user(userId: int, token: str = Depends(oauth2_scheme)):
         conn = await connect_to_database()
         cursor = conn.cursor()
 
-        cursor.execute("SELECT * FROM Admins WHERE id=?", (userId,))
+        # Fetch the user to be deleted
+        cursor.execute("SELECT * FROM Admins WHERE adminId=?", (userId,))
         admin = cursor.fetchone()
 
         if not admin:
@@ -163,7 +165,7 @@ async def delete_user(userId: int, token: str = Depends(oauth2_scheme)):
             conn.close()
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
-        cursor.execute("DELETE FROM Admins WHERE id=?", (userId,))
+        cursor.execute("DELETE FROM Admins WHERE adminId=?", (userId,))
         conn.commit()
 
         cursor.close()
