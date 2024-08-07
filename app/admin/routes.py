@@ -144,7 +144,7 @@ async def update_user(userId: int, user_update: AdminUserUpdate, token: str = De
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token or error updating user")
 
 
-@router.delete("/admins/{userId}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/admins/{userId}", status_code=status.HTTP_200_OK)
 async def delete_user(userId: int, token: str = Depends(oauth2_scheme)):
     try:
         payload = verify_token(token)
@@ -170,6 +170,8 @@ async def delete_user(userId: int, token: str = Depends(oauth2_scheme)):
 
         cursor.close()
         conn.close()
+
+        return {"message": f"User with ID {userId} has been successfully deleted."}
 
     except Exception as e:
         print('Exception:', e)

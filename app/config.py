@@ -17,7 +17,7 @@ async def startup():
     await initialize_roles()
     print("DB Connect Successfully")
 
-app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
-app.include_router(user_router, prefix="/api/user", tags=["user"])
-app.include_router(admin_auth_router, prefix="/api/admin/auth", tags=["admin_auth"])
-app.include_router(admin_router, prefix="/api/admin", tags=["admin"])
+app.include_router(auth_router, prefix="/api/auth", tags=["Auth"])
+app.include_router(user_router, prefix="/api/user", tags=["User"])
+app.include_router(admin_auth_router, prefix="/api/admin/auth", tags=["Admin Auth"])
+app.include_router(admin_router, prefix="/api/admin", tags=["Admin Management"])
