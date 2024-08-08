@@ -15,7 +15,6 @@ async def get_user_profile(token: str = Depends(oauth2_scheme)):
     try:
         payload = verify_token(token)
         username = payload.get("sub")
-        print('username:', username)
 
         conn = await connect_to_database()
         cursor = conn.cursor()
@@ -31,13 +30,12 @@ async def get_user_profile(token: str = Depends(oauth2_scheme)):
 
         user = {
             "id": db_user[0],
-            "email": db_user[1],
-            "username": db_user[2],
-            "full_name": db_user[3],
-            "phone": db_user[4],
-            "address": db_user[5]
+            "username": db_user[1],
+            "email": db_user[2],
+            "full_name": db_user[4],
+            "phone": db_user[5],
+            "address": db_user[6]
         }
-        print('User:', user)
         return user
     except Exception as e:
         print('Exception:', e)
@@ -108,3 +106,32 @@ async def update_user_profile(profile_update: UserProfileUpdate, token: str = De
     except Exception as e:
         print('Exception:', e)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
+
+@router.delete("/profile", status_code=status.HTTP_200_OK)
+async def delete_user_profile(token: str = Depends(oauth2_scheme)):
+    try:
+        payload = verify_token(token)
+        username = payload.get("sub")
+
+        conn = await connect_to_database()
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT * FROM users WHERE username=?", (username,))
+        db_user = cursor.fetchone()
+
+        if not db_user:
+            cursor.close()
+            conn.close()
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+        cursor.execute("DELETE FROM users WHERE username=?", (username,))
+        conn.commit()
+
+        cursor.close()
+        conn.close()
+
+        return {"message": "User profile has been successfully deleted."}
+    except Exception as e:
+        print('Exception:', e)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token or error deleting user")

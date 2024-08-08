@@ -11,3 +11,9 @@ class AdminUserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     username: Optional[str] = None
     full_name: Optional[str] = None
+
+class AdminCreate(BaseModel):
+    username: str
+    email: EmailStr
+    password: str
+    full_name: str
