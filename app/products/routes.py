@@ -1,13 +1,11 @@
 from fastapi import APIRouter, HTTPException, Query, Depends, status
 from typing import List, Optional
+
 from app.products.schemas import ProductResponse
 from app.services.dbServices import connect_to_database
-from datetime import datetime
+from app.utils import format_datetime
 
 router = APIRouter()
-
-def format_datetime(dt: datetime) -> str:
-    return dt.isoformat() if dt else ""
 
 @router.get("/products", response_model=List[ProductResponse])
 async def get_all_products(
