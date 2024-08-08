@@ -6,6 +6,7 @@ from app.auth.routes import router as auth_router
 from app.auth.admin_routes import router as admin_auth_router
 from app.user.routes import router as user_router
 from app.admin.routes import router as admin_router
+from app.products.routes import router as product_router
 
 app = FastAPI(
     title="VendoAPI"
@@ -17,7 +18,8 @@ async def startup():
     await initialize_roles()
     print("DB Connect Successfully")
 
-app.include_router(auth_router, prefix="/api/auth", tags=["Auth"])
-app.include_router(user_router, prefix="/api/user", tags=["User"])
+app.include_router(auth_router, prefix="/api/auth", tags=["User Auth"])
+app.include_router(user_router, prefix="/api/user", tags=["User Management"])
 app.include_router(admin_auth_router, prefix="/api/admin/auth", tags=["Admin Auth"])
 app.include_router(admin_router, prefix="/api/admin", tags=["Admin Management"])
+app.include_router(product_router, prefix="/api", tags=["Products"])
