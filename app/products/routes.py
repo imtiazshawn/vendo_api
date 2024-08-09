@@ -1,11 +1,15 @@
 from fastapi import APIRouter, HTTPException, Query, Depends, status
 from typing import List, Optional
+from fastapi.security import OAuth2PasswordBearer
 
 from app.products.schemas import ProductCreate, ProductUpdate, ProductResponse
 from app.services.dbServices import connect_to_database
 from app.utils.date_convert import format_datetime
+from app.utils.is_admin import is_admin
+from app.auth.token import verify_token
 
 router = APIRouter()
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/admin/auth/login")
 
 @router.get("/products", response_model=List[ProductResponse])
 async def get_all_products(
@@ -86,8 +90,14 @@ async def get_product_details(productId: int):
 
 
 @router.post("/products", response_model=ProductResponse)
-async def create_product(product: ProductCreate):
+async def create_product(product: ProductCreate, token: str = Depends(oauth2_scheme)):
     try:
+        payload = verify_token(token)
+        username = payload.get('sub')
+        
+        if not await is_admin(username):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+
         conn = await connect_to_database()
         cursor = conn.cursor()
         
@@ -118,13 +128,19 @@ async def create_product(product: ProductCreate):
         }
     except Exception as e:
         print('Exception:', e)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error creating product")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token or error creating product")
 
 
     
 @router.put("/products/{productId}", response_model=ProductResponse)
-async def update_product(productId: int, product: ProductUpdate):
+async def update_product(productId: int, product: ProductUpdate, token: str = Depends(oauth2_scheme)):
     try:
+        payload = verify_token(token)
+        username = payload.get('sub')
+        
+        if not await is_admin(username):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+
         conn = await connect_to_database()
         cursor = conn.cursor()
 
@@ -156,13 +172,19 @@ async def update_product(productId: int, product: ProductUpdate):
         }
     except Exception as e:
         print('Exception:', e)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error updating product")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token or error updating product")
 
 
 
 @router.delete("/products/{productId}")
-async def delete_product(productId: int):
+async def delete_product(productId: int, token: str = Depends(oauth2_scheme)):
     try:
+        payload = verify_token(token)
+        username = payload.get('sub')
+        
+        if not await is_admin(username):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+
         conn = await connect_to_database()
         cursor = conn.cursor()
 
@@ -178,4 +200,4 @@ async def delete_product(productId: int):
         return {"detail": "Product deleted successfully"}
     except Exception as e:
         print('Exception:', e)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error deleting product")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token or error deleting product")
