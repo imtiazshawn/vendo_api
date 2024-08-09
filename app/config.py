@@ -10,6 +10,7 @@ from app.products.routes import router as product_router
 from app.categories.routes import router as categories_router
 from app.cart.routes import router as cart_router
 from app.orders.routes import router as orders_router
+from app.admin.orders_routes import router as admin_order_router
 
 app = FastAPI(
     title="VendoAPI"
@@ -29,3 +30,4 @@ app.include_router(categories_router, prefix="/api", tags=["Categories"])
 app.include_router(product_router, prefix="/api", tags=["Products"])
 app.include_router(cart_router, prefix="/api", tags=["Carts"])
 app.include_router(orders_router, prefix="/api", tags=["Orders"])
+app.include_router(admin_order_router, prefix="/api", tags=["Admin Order Management"])
