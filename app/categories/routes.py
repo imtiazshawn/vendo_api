@@ -4,7 +4,7 @@ from typing import List
 from app.categories.schemas import CategoryCreate, CategoryUpdate, CategoryResponse
 from app.products.schemas import ProductResponse
 from app.services.dbServices import connect_to_database
-from app.utils import format_datetime
+from app.utils.date_convert import format_datetime
 
 router = APIRouter()
 

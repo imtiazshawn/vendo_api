@@ -1,22 +1,15 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from typing import List
+from fastapi.security import OAuth2PasswordBearer
+
 from app.auth.token import verify_token
 from app.auth.services import get_password_hash
 from app.services.dbServices import connect_to_database
 from app.admin.schemas import AdminUserResponse, AdminUserUpdate, AdminCreate
-from fastapi.security import OAuth2PasswordBearer
+from app.utils.is_admin import is_admin
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/admin/auth/login")
-
-async def is_admin(username: str) -> bool:
-    conn = await connect_to_database()
-    cursor = conn.cursor()
-    cursor.execute("SELECT 1 FROM Admins WHERE username=?", (username,))
-    exists = cursor.fetchone() is not None
-    cursor.close()
-    conn.close()
-    return exists
 
 @router.get("/admins", response_model=List[AdminUserResponse])
 async def get_all_users(token: str = Depends(oauth2_scheme)):

@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from app.products.schemas import ProductCreate, ProductUpdate, ProductResponse
 from app.services.dbServices import connect_to_database
-from app.utils import format_datetime
+from app.utils.date_convert import format_datetime
 
 router = APIRouter()
 
