@@ -16,6 +16,7 @@ from app.reviews.routes import router as reviews_router
 from app.inventory.routes import router as inventory_routes
 from app.notifications.routes import router as notifications_routes
 from app.reports.routes import router as reports_routes
+from app.supports.routes import router as supports_routes
 
 app = FastAPI(
     title="VendoAPI"
@@ -41,3 +42,4 @@ app.include_router(reviews_router, prefix="/api", tags=["Reviews"])
 app.include_router(inventory_routes, prefix="/api", tags=["Inventory"])
 app.include_router(notifications_routes, prefix="/api", tags=["Notifications"])
 app.include_router(reports_routes, prefix="/api", tags=["Reports"])
+app.include_router(supports_routes, prefix="/api", tags=["Customer Supports"])
