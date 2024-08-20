@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from app.auth.token import verify_token
 from app.services.dbServices import connect_to_database
 from app.utils.is_admin import is_admin
-from app.reports.schemas import SalesReport, OrderReport, UserActivityReport
+from app.reports.schemas import SalesReport, OrderReport, UserActivityReport, DateRange
 from app.utils.date_convert import format_datetime
 
 router = APIRouter()
@@ -24,22 +24,41 @@ async def get_sales_report(token: str = Depends(oauth2_scheme)) -> Dict[str, Any
         conn = await connect_to_database()
         cursor = conn.cursor()
 
-        query = """
-        SELECT p.productId, p.name AS product_name, SUM(oi.quantity * p.price) AS total_sales
+        today = datetime.today()
+        first_day_of_month = today.replace(day=1)
+        last_day_of_month = (first_day_of_month + timedelta(days=31)).replace(day=1) - timedelta(days=1)
+
+        formatted_start_date = first_day_of_month.strftime('%Y-%m-%d')
+        formatted_end_date = last_day_of_month.strftime('%Y-%m-%d')
+
+        total_sales_query = """
+        SELECT SUM(oi.quantity * p.price) AS total_sales
         FROM OrderItems oi
         JOIN Products p ON oi.productId = p.productId
-        GROUP BY p.productId, p.name
-        ORDER BY total_sales DESC
+        JOIN Orders o ON oi.orderId = o.orderId
+        WHERE o.createdAt >= ? AND o.createdAt <= ?
         """
-        cursor.execute(query)
-        sales_data = cursor.fetchall()
+        cursor.execute(total_sales_query, (formatted_start_date, formatted_end_date))
+        total_sales = cursor.fetchone()[0] or 0.00
 
-        total_sales = sum(item[2] for item in sales_data)
-
-        chart_data = [float(item[2]) for item in sales_data]
+        daily_sales_query = """
+        SELECT FORMAT(o.createdAt, 'yyyy-MM-dd') AS date, SUM(oi.quantity * p.price) AS daily_sales
+        FROM OrderItems oi
+        JOIN Products p ON oi.productId = p.productId
+        JOIN Orders o ON oi.orderId = o.orderId
+        WHERE o.createdAt >= ? AND o.createdAt <= ?
+        GROUP BY FORMAT(o.createdAt, 'yyyy-MM-dd')
+        ORDER BY date
+        """
+        cursor.execute(daily_sales_query, (formatted_start_date, formatted_end_date))
+        daily_sales_data = cursor.fetchall()
 
         cursor.close()
         conn.close()
+
+        days_in_month = [(first_day_of_month + timedelta(days=i)).strftime('%Y-%m-%d') for i in range((last_day_of_month - first_day_of_month).days + 1)]
+        daily_sales = {row[0]: float(row[1]) for row in daily_sales_data}
+        chart_data = [daily_sales.get(day, 0.00) for day in days_in_month]
 
         return {
             "total_sales": f"${total_sales:,.2f}",
@@ -215,7 +234,7 @@ async def get_user_activity_report(token: str = Depends(oauth2_scheme)):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error fetching user activity report")
 
 
-@router.get("/admin/reports/users-report", response_model=Dict[str, Union[str, List[float]]])
+@router.get("/admin/reports/users-report", response_model=Dict[str, Union[str, List[int]]])
 async def get_users_report(token: str = Depends(oauth2_scheme)):
     try:
         payload = verify_token(token)
@@ -227,27 +246,45 @@ async def get_users_report(token: str = Depends(oauth2_scheme)):
         conn = await connect_to_database()
         cursor = conn.cursor()
 
-        query = """
-        SELECT FORMAT(createdAt, 'yyyy-MM') AS period, COUNT(userId) AS user_count
+        today = datetime.today()
+        first_day_of_month = today.replace(day=1)
+        last_day_of_month = (first_day_of_month + timedelta(days=31)).replace(day=1) - timedelta(days=1)
+
+        formatted_start_date = first_day_of_month.strftime('%Y-%m-%d')
+        formatted_end_date = last_day_of_month.strftime('%Y-%m-%d')
+
+        total_users_query = "SELECT COUNT(userId) FROM Users"
+        cursor.execute(total_users_query)
+        total_users = cursor.fetchone()[0]
+
+        new_users_query = """
+        SELECT FORMAT(createdAt, 'yyyy-MM-dd') AS period, COUNT(userId) AS user_count
         FROM Users
-        GROUP BY FORMAT(createdAt, 'yyyy-MM')
+        WHERE createdAt >= ? AND createdAt <= ?
+        GROUP BY FORMAT(createdAt, 'yyyy-MM-dd')
         ORDER BY period
         """
-        cursor.execute(query)
-        user_data = cursor.fetchall()
+        cursor.execute(new_users_query, (formatted_start_date, formatted_end_date))
+        new_user_data = cursor.fetchall()
 
         cursor.close()
         conn.close()
 
-        user_counts = [float(item[1]) for item in user_data]
+        days_in_month = [(first_day_of_month + timedelta(days=i)).strftime('%Y-%m-%d') for i in range((last_day_of_month - first_day_of_month).days + 1)]
+        new_user_counts = dict(new_user_data)
+
+        chart_data = [int(new_user_counts.get(day, 0)) for day in days_in_month]
+        monthly_total_users = sum(chart_data)
 
         return {
-            "total_users": f"{sum(user_counts):,}",
-            "chartData": user_counts
+            "total_users": f"{total_users:,}",
+            "monthly_total_users": f"{monthly_total_users:,}",
+            "chartData": chart_data
         }
     except Exception as e:
         print(f"Exception: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error fetching users report")
+
     
 
 @router.post("/record-visit", response_model=Dict[str, str])
@@ -275,7 +312,7 @@ async def record_visit(token: str = Depends(oauth2_scheme)):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error recording visit")
 
 
-@router.get("/admin/reports/visitors", response_model=Dict[str, Union[str, List[float]]])
+@router.get("/admin/reports/visitors", response_model=Dict[str, Union[str, List[int]]])
 async def get_visitors_report(token: str = Depends(oauth2_scheme)):
     try:
         payload = verify_token(token)
@@ -287,24 +324,95 @@ async def get_visitors_report(token: str = Depends(oauth2_scheme)):
         conn = await connect_to_database()
         cursor = conn.cursor()
 
-        query = """
-        SELECT FORMAT(createdAt, 'yyyy-MM') AS period, COUNT(userId) AS visitor_count
+        today = datetime.today()
+        first_day_of_month = today.replace(day=1)
+        last_day_of_month = (first_day_of_month + timedelta(days=31)).replace(day=1) - timedelta(days=1)
+
+        formatted_start_date = first_day_of_month.strftime('%Y-%m-%d')
+        formatted_end_date = last_day_of_month.strftime('%Y-%m-%d')
+
+        total_visitors_query = """
+        SELECT COUNT(userId) AS total_visitors
         FROM UserVisits
-        GROUP BY FORMAT(createdAt, 'yyyy-MM')
+        WHERE createdAt >= ? AND createdAt <= ?
+        """
+        cursor.execute(total_visitors_query, (formatted_start_date, formatted_end_date))
+        total_visitors = cursor.fetchone()[0]
+
+        daily_visits_query = """
+        SELECT FORMAT(createdAt, 'yyyy-MM-dd') AS period, COUNT(userId) AS visitor_count
+        FROM UserVisits
+        WHERE createdAt >= ? AND createdAt <= ?
+        GROUP BY FORMAT(createdAt, 'yyyy-MM-dd')
         ORDER BY period
         """
-        cursor.execute(query)
-        visitor_data = cursor.fetchall()
+        cursor.execute(daily_visits_query, (formatted_start_date, formatted_end_date))
+        daily_visit_data = cursor.fetchall()
 
         cursor.close()
         conn.close()
 
-        visitor_counts = [float(item[1]) for item in visitor_data]
+        days_in_month = [(first_day_of_month + timedelta(days=i)).strftime('%Y-%m-%d') for i in range((last_day_of_month - first_day_of_month).days + 1)]
+        daily_visit_counts = dict(daily_visit_data)
+
+        chart_data = [int(daily_visit_counts.get(day, 0)) for day in days_in_month]
 
         return {
-            "total_visitors": f"{sum(visitor_counts):,}",
-            "chartData": visitor_counts
+            "total_visitors": f"{total_visitors:,}",
+            "chartData": chart_data
         }
     except Exception as e:
         print(f"Exception: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error fetching visitors report")
+
+
+@router.post("/admin/reports/orders-by-month", response_model=Dict[str, int])
+async def get_orders_by_month(date_range: DateRange, token: str = Depends(oauth2_scheme)) -> Dict[str, int]:
+    try:
+        payload = verify_token(token)
+        username = payload.get("sub")
+
+        if not await is_admin(username):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+
+        conn = await connect_to_database()
+        cursor = conn.cursor()
+
+        year = date_range.year
+        month = date_range.month
+
+        if month < 1 or month > 12:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid month. Must be between 1 and 12.")
+
+        start_date = f"{year}-{month:02d}-01"
+        end_date = f"{year}-{month + 1:02d}-01"
+        
+        if month == 12:
+            end_date = f"{year + 1}-01-01"
+
+        query = """
+        SELECT 
+            COUNT(*) AS total_orders,
+            SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) AS completed_orders,
+            SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) AS pending_orders,
+            SUM(CASE WHEN status = 'Cancelled' THEN 1 ELSE 0 END) AS cancelled_orders
+        FROM Orders
+        WHERE createdAt >= ? AND createdAt < ?
+        """
+
+        cursor.execute(query, (start_date, end_date))
+        result = cursor.fetchone()
+
+        cursor.close()
+        conn.close()
+
+        return {
+            "total_orders": result[0],
+            "completed_orders": result[1],
+            "pending_orders": result[2],
+            "cancelled_orders": result[3]
+        }
+
+    except Exception as e:
+        print(f"Exception: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error fetching orders report")

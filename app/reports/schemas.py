@@ -17,3 +17,7 @@ class UserActivityReport(BaseModel):
     username: str
     total_orders: int
     total_amount_spent: float
+
+class DateRange(BaseModel):
+    year: int
+    month: int
