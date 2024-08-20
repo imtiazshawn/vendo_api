@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from typing import List, Any, Dict, Union
 from fastapi.security import OAuth2PasswordBearer
+from datetime import datetime, timedelta
 
 from app.auth.token import verify_token
 from app.services.dbServices import connect_to_database
@@ -125,7 +126,7 @@ async def get_order_report(token: str = Depends(oauth2_scheme)):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error fetching order report")
 
 
-@router.get("/admin/reports/orders-report", response_model=Dict[str, Union[str, List[float]]])
+@router.get("/admin/reports/orders-report", response_model=Dict[str, Union[str, List[int]]])
 async def get_orders_report(token: str = Depends(oauth2_scheme)):
     try:
         payload = verify_token(token)
@@ -135,26 +136,38 @@ async def get_orders_report(token: str = Depends(oauth2_scheme)):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
 
         conn = await connect_to_database()
+        if conn is None:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Database connection failed")
+
         cursor = conn.cursor()
 
+        now = datetime.now()
+        first_day_of_month = now.replace(day=1)
+        last_day_of_month = (now.replace(day=1) + timedelta(days=31)).replace(day=1) - timedelta(days=1)
+        formatted_start_date = first_day_of_month.strftime('%Y-%m-%d')
+        formatted_end_date = last_day_of_month.strftime('%Y-%m-%d')
+
         query = """
-        SELECT FORMAT(o.createdAt, 'yyyy-MM-dd') AS period, SUM(oi.quantity * oi.price) AS total_amount
+        SELECT FORMAT(o.createdAt, 'yyyy-MM-dd') AS period, COUNT(o.orderId) AS total_orders
         FROM Orders o
-        JOIN OrderItems oi ON o.orderId = oi.orderId
+        WHERE o.createdAt >= ? AND o.createdAt <= ?
         GROUP BY FORMAT(o.createdAt, 'yyyy-MM-dd')
         ORDER BY period
         """
-        cursor.execute(query)
+        
+        cursor.execute(query, (formatted_start_date, formatted_end_date))
         order_data = cursor.fetchall()
 
         cursor.close()
         conn.close()
 
-        total_amounts = [float(item[1]) for item in order_data]
+        days_in_month = [(first_day_of_month + timedelta(days=i)).strftime('%Y-%m-%d') for i in range((last_day_of_month - first_day_of_month).days + 1)]
+        total_orders = {row[0]: int(row[1]) for row in order_data}
+        chart_data = [total_orders.get(day, 0) for day in days_in_month]
 
         return {
-            "total_amount": f"${sum(total_amounts):,.2f}",
-            "chartData": total_amounts
+            "total_orders": str(sum(chart_data)),
+            "chartData": chart_data
         }
     except Exception as e:
         print(f"Exception: {e}")
