@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.services.dbServices import connect_to_database
 from app.database.init_db import initialize_roles
@@ -17,9 +18,23 @@ from app.inventory.routes import router as inventory_routes
 from app.notifications.routes import router as notifications_routes
 from app.reports.routes import router as reports_routes
 from app.supports.routes import router as supports_routes
+from app.products_varient.routes import router as products_varient_routes
 
 app = FastAPI(
     title="VendoAPI"
+)
+
+#CORS
+origins = [
+    "http://localhost:3000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 @app.on_event("startup")
@@ -34,6 +49,7 @@ app.include_router(admin_auth_router, prefix="/api/admin/auth", tags=["Admin Aut
 app.include_router(admin_router, prefix="/api/admin", tags=["Admin Management"])
 app.include_router(categories_router, prefix="/api", tags=["Categories"])
 app.include_router(product_router, prefix="/api", tags=["Products"])
+app.include_router(products_varient_routes, prefix="/api", tags=["Products Varients"])
 app.include_router(cart_router, prefix="/api", tags=["Carts"])
 app.include_router(orders_router, prefix="/api", tags=["Orders"])
 app.include_router(admin_order_router, prefix="/api", tags=["Admin Order Management"])
